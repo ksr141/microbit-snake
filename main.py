@@ -22,7 +22,8 @@ led.plot(Body[0][0],Body[0][1])
 
 # Define a function to randomly pick a new food location
 # Make sure we pick a spot that isn't already occupied by the snake
-def GetNewFoodLocation(FoodLocation):
+def GetNewFoodLocation():
+    global FoodLocation # global means we can access this variable from anywhere
     # Check if the LED is turned on at the location we picked
     # If it is, keep picking a new random spot until we find a good one
     while led.point(FoodLocation[0], FoodLocation[1]):
@@ -31,23 +32,24 @@ def GetNewFoodLocation(FoodLocation):
     # Turn on the LED at the new food location, but keep it dimmer to tell it apart
     # from the snake
     led.plot_brightness(FoodLocation[0], FoodLocation[1], 10)
-    return FoodLocation
 
 # When the snake crashes, display the game over animation and the current score
-# The score will be the number of snake segments * 10
+# The score will be the number of food eaten * 10
 def GameOver(Score):
     # Turn on each LED with a slight pause in between
-    for i in range(5):
-        for j in range (5):
-            led.plot(i,j)
-            pause(50) # 0.05 seconds
+    for x in range(5):
+        for y in range (5):
+            if not led.point(x,y) or (FoodLocation[0] == x and FoodLocation[1] == y):
+                led.plot(x,y)
+                pause(75) # 0.075 seconds
+    pause(200)
     # Now show the skull because the snake died :(
     basic.show_icon(IconNames.SKULL)    
     pause(1000) # 1 second
     # Now turn off the LEDs with a quicker pause in between
-    for i in range(0,5):
-        for j in range (0,5):
-            led.unplot(i,j)
+    for x in range(5):
+        for y in range (5):
+            led.unplot(x,y)
             pause(25)
     # And finally, display the score forever
     # until the microbit gets reset to start a new game
@@ -68,7 +70,7 @@ def on_button_pressed_b():
 input.on_button_pressed(Button.B, on_button_pressed_b)
 
 # Call the GetNewFoodLocation function to get our initial food location
-FoodLocation = GetNewFoodLocation(FoodLocation)
+GetNewFoodLocation()
 
 # Execute the main game loop until the snake crashes
 while True:    
@@ -93,9 +95,15 @@ while True:
 
     # Create a new head for the snake by taking the current head segment and applying our Direction to it
     Head = [Body[0][0] + Directions[CurDir][0], Body[0][1] + Directions[CurDir][1]]
+    # The Tail of the snake will be indexed at the total length of the snake (len(Body))
+    # minus 1, because python lists start at 0
+    Tail = Body[len(Body)-1]
+           
     # Check if the snake crashed by seeing if the new head segment is either out of bounds (x or y less than 0 or greater than 4)
-    # Or if we ran into another snake segment (LED turned on but not the FoodLocation)
-    if Head[0] < 0 or Head[1] < 0 or Head[0] > 4 or Head[1] > 4 or (led.point(Head[0], Head[1]) and not (Head[0] == FoodLocation[0] and Head[1] == FoodLocation[1])):
+    # Or if we ran into another snake segment (LED turned on but not the FoodLocation or Tail of the snake)
+    if Head[0] < 0 or Head[1] < 0 or Head[0] > 4 or Head[1] > 4 or \
+    (led.point(Head[0], Head[1]) and not (Head[0] == FoodLocation[0] and Head[1] == FoodLocation[1]) \
+    and not (Head[0] == Tail[0] and Head[1] == Tail[1])):
         # The snake crashed!  Let's show the score (how many snake segments were collected)
         GameOver(len(Body)-1) # len() returns the total number of entries within Body[].  Subtract 1 because we started with 1 segment
 
@@ -107,20 +115,18 @@ while True:
     # Now lets check if the snake ate some food
     if Head[0] == FoodLocation[0] and Head[1] == FoodLocation[1]:
         # If it did, create a new food somewhere random
-        FoodLocation = GetNewFoodLocation(FoodLocation)
+        GetNewFoodLocation()
     else:
         # If it didn't eat any food, then turn off the LED at the tail of the snake
         # Since we only want the snake to grow if it ate food
-        # The Tail of the snake will be indexed at the total length of the snake (len(Body))
-        # minus 2, because python lists start at 0
-        Tail = Body[len(Body)-1]
-        # Turn off the LED at the Tail
-        
-        led.unplot(Tail[0], Tail[1])
+        # Turn off the LED at the Tail only if we didn't just cross here with the Head of the snake
+        if not (Head[0] == Tail[0] and Head[1] == Tail[1]):
+            led.unplot(Tail[0], Tail[1])
         # Now remove the Tail from the Body segments
         # pop() will pop the last item off of the Body list (which will be the Tail)
         Body.pop()
     
     # Pause the game for a second (1000 ms) to give the player some time to react!
     # Otherwise the snake will run right into a wall before we even know what happened
+    # For a more challenging game, lower this number (try 750!)
     pause(1000)
