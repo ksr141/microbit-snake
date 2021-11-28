@@ -17,8 +17,14 @@ Directions = [[0,-1], [1,0], [0,1], [-1,0]]
 CurDir = 0
 # Keep track of which button was pressed
 ButtonPressed = "None"
+# Keep track of our secret Logo press
+LogoPressed = False
 # Turn on the LED of our first snake segment
-led.plot(Body[0][0],Body[0][1])
+led.plot_brightness(Body[0][0],Body[0][1], 128)
+# Which level are we on?
+Level = 1
+# The gamespeed (lower is faster)
+GameSpeed = 1000
 
 # Define a function to randomly pick a new food location
 # Make sure we pick a spot that isn't already occupied by the snake
@@ -35,11 +41,12 @@ def GetNewFoodLocation():
 
 # When the snake crashes, display the game over animation and the current score
 # The score will be the number of food eaten * 10
-def GameOver(Score):
+def GameOver(Score, Level):
     # Turn on each LED with a slight pause in between
     for x in range(5):
         for y in range (5):
-            if not led.point(x,y) or (FoodLocation[0] == x and FoodLocation[1] == y):
+            if not led.point(x,y) or (FoodLocation[0] == x and FoodLocation[1] == y) \
+            or (Body[0][0] == x and Body[0][1] == y):
                 led.plot(x,y)
                 pause(75) # 0.075 seconds
     pause(200)
@@ -54,7 +61,50 @@ def GameOver(Score):
     # And finally, display the score forever
     # until the microbit gets reset to start a new game
     while True:
-        basic.show_string(str(Score*10))
+        basic.show_string(str(Score*10+Level*100))
+
+# Create Level 2
+def StartLevel2():
+    # Reset the snake
+    global Body
+    Body = [[2,4]]
+    global CurDir
+    CurDir = 0
+    global Level
+    Level = 2
+    global ButtonPressed
+    ButtonPressed = "None"
+    global GameSpeed
+    GameSpeed = 750
+    global LogoPressed
+    LogoPressed = False
+
+    # Trophy
+    basic.show_icon(IconNames.HAPPY)
+    pause(2000)
+    # Reset the screen
+    for x in range(5):
+        for y in range (5):
+            led.unplot(x,y)
+    # Create some random obstacles
+    for x in range(3):
+        led.plot_brightness(randint(0,4), randint(0,4), 200)
+    # Make sure the spot in front of the snake is clear
+    led.unplot(2,3)
+    led.plot_brightness(Body[0][0], Body[0][1], 128)
+    # Wait for a button press
+    while ButtonPressed == "None":
+        pause(100)
+    ButtonPressed = "None"
+
+# Create Level 3
+def StartLevel3():
+    global GameSpeed
+    global Level
+    StartLevel2()
+    # Make sure the spot in front of the snake is clear
+    GameSpeed = 650
+    Level = 3
 
 # Input handlers for our two buttons
 # This function will get called automatically when button A is pressed
@@ -68,6 +118,13 @@ def on_button_pressed_b():
     global ButtonPressed
     ButtonPressed = "B" # Mark that button B was pressed
 input.on_button_pressed(Button.B, on_button_pressed_b)
+
+# This function will get called automatically when the logo is pressed
+def on_logo_event_pressed():
+    global LogoPressed
+    LogoPressed = True
+    led.plot(0,0)
+input.on_logo_event(TouchButtonEvent.PRESSED, on_logo_event_pressed)
 
 # Call the GetNewFoodLocation function to get our initial food location
 GetNewFoodLocation()
@@ -98,22 +155,42 @@ while True:
     # The Tail of the snake will be indexed at the total length of the snake (len(Body))
     # minus 1, because python lists start at 0
     Tail = Body[len(Body)-1]
-           
+
+    # For Levels 2 and 3, wrap the snake around to the other side of the screen
+    if Level > 1:
+        Head[0] %= 5 # modulo operator wraps around from 4 -> 0
+        Head[1] %= 5
+        if Head[0] < 0:  # If the snake x,y is negative, wrap around back to 4
+            Head[0] = 4
+        if Head[1] < 0:
+            Head[1] = 4
+
     # Check if the snake crashed by seeing if the new head segment is either out of bounds (x or y less than 0 or greater than 4)
     # Or if we ran into another snake segment (LED turned on but not the FoodLocation or Tail of the snake)
     if Head[0] < 0 or Head[1] < 0 or Head[0] > 4 or Head[1] > 4 or \
     (led.point(Head[0], Head[1]) and not (Head[0] == FoodLocation[0] and Head[1] == FoodLocation[1]) \
     and not (Head[0] == Tail[0] and Head[1] == Tail[1])):
         # The snake crashed!  Let's show the score (how many snake segments were collected)
-        GameOver(len(Body)-1) # len() returns the total number of entries within Body[].  Subtract 1 because we started with 1 segment
+        GameOver(len(Body)-1, Level) # len() returns the total number of entries within Body[].  Subtract 1 because we started with 1 segment
 
     # If the snake didn't crash, turn on the LED at the new Head location    
-    led.plot(Head[0], Head[1])
+    led.plot_brightness(Head[0], Head[1], 128)
+    # Turn up the brightness on the old Head location to match the rest of the snake
+    led.plot(Body[0][0], Body[0][1])
     # Add the new head location to our snake segment list at position 0 (the head)
     Body.insert(0, Head)
 
     # Now lets check if the snake ate some food
     if Head[0] == FoodLocation[0] and Head[1] == FoodLocation[1]:
+        # Did you beat the game?
+        if LogoPressed or (len(Body) == 25 and Level == 1):
+            StartLevel2()
+        elif LogoPressed or (len(Body) == 22 and Level == 2):
+            StartLevel3()
+        elif len(Body) == 22 and Level == 3:
+            while True:
+                basic.show_string("YOU WON!!!")
+
         # If it did, create a new food somewhere random
         GetNewFoodLocation()
     else:
@@ -129,4 +206,4 @@ while True:
     # Pause the game for a second (1000 ms) to give the player some time to react!
     # Otherwise the snake will run right into a wall before we even know what happened
     # For a more challenging game, lower this number (try 750!)
-    pause(1000)
+    pause(GameSpeed)
