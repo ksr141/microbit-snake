@@ -101,8 +101,10 @@ def StartLevel2():
 def StartLevel3():
     global GameSpeed
     global Level
+    # Add another obstacle
+    led.plot_brightness(randint(0,4), randint(0,4), 200)
     StartLevel2()
-    # Make sure the spot in front of the snake is clear
+    # Even faster!!!
     GameSpeed = 650
     Level = 3
 

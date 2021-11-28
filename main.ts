@@ -118,8 +118,10 @@ function StartLevel2() {
 function StartLevel3() {
     
     
+    //  Add another obstacle
+    led.plotBrightness(randint(0, 4), randint(0, 4), 200)
     StartLevel2()
-    //  Make sure the spot in front of the snake is clear
+    //  Even faster!!!
     GameSpeed = 650
     Level = 3
 }
